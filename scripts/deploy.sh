@@ -1,28 +1,32 @@
 #!/usr/bin/env bash
-# deploy.sh — Sync the plugin's skills/ directory into your local Claude skills folder.
+# deploy.sh — Sync the plugin's individual skills into your local Claude skills folder.
+#
+# Each skill is symlinked individually into ~/.claude/skills/<skill-name>
+# so Claude Code can detect them at the expected nesting level.
+# The _shared/ folder is symlinked too (skills reference it via relative paths).
 #
 # Usage:
-#   ./scripts/deploy.sh              # creates a symlink (recommended during dev)
-#   ./scripts/deploy.sh --copy       # copies files instead (safer for production-like testing)
-#   ./scripts/deploy.sh --unlink     # removes the symlink
+#   ./scripts/deploy.sh              # creates symlinks (recommended during dev)
+#   ./scripts/deploy.sh --copy       # copies files instead
+#   ./scripts/deploy.sh --unlink     # removes all symlinks created by this script
 
 set -euo pipefail
 
 # -----------------------------------------------------------------------------
-# CONFIGURE: set this to your local Claude skills directory.
-# Common locations on macOS:
-#   - Claude Desktop:     ~/Library/Application Support/Claude/skills
-#   - Claude Code config: ~/.claude/skills
-# Adjust to match your setup.
+# CONFIGURE: target directory for skills
 # -----------------------------------------------------------------------------
 CLAUDE_SKILLS_DIR="${CLAUDE_SKILLS_DIR:-$HOME/.claude/skills}"
 
-# Plugin paths
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SOURCE_SKILLS_DIR="$REPO_ROOT/skills"
-TARGET_DIR="$CLAUDE_SKILLS_DIR/running-coach"
-
 MODE="${1:-symlink}"
+
+# Names of items in skills/ to symlink (skills + _shared)
+# _shared is included because skills reference it via ../_shared/...
+ITEMS=()
+for dir in "$SOURCE_SKILLS_DIR"/*/; do
+  ITEMS+=("$(basename "$dir")")
+done
 
 # Sanity checks
 if [[ ! -d "$SOURCE_SKILLS_DIR" ]]; then
@@ -31,42 +35,67 @@ if [[ ! -d "$SOURCE_SKILLS_DIR" ]]; then
 fi
 
 if [[ ! -d "$CLAUDE_SKILLS_DIR" ]]; then
-  echo "⚠️  Claude skills directory does not exist: $CLAUDE_SKILLS_DIR"
-  echo "    Create it first, or set CLAUDE_SKILLS_DIR environment variable to the correct path."
-  echo "    Example: CLAUDE_SKILLS_DIR=~/Library/Application\\ Support/Claude/skills ./scripts/deploy.sh"
+  echo "⚠️  Target skills directory does not exist: $CLAUDE_SKILLS_DIR"
+  echo "    Create it with: mkdir -p \"$CLAUDE_SKILLS_DIR\""
   exit 1
 fi
 
 case "$MODE" in
   --unlink|unlink)
-    if [[ -L "$TARGET_DIR" ]]; then
-      rm "$TARGET_DIR"
-      echo "✓ Symlink removed: $TARGET_DIR"
-    elif [[ -d "$TARGET_DIR" ]]; then
-      echo "⚠️  $TARGET_DIR exists but is not a symlink. Refusing to delete."
-      echo "    Remove manually if you're sure: rm -rf '$TARGET_DIR'"
-      exit 1
-    else
-      echo "Nothing to unlink at $TARGET_DIR"
+    echo "Removing symlinks from $CLAUDE_SKILLS_DIR..."
+    for item in "${ITEMS[@]}"; do
+      target="$CLAUDE_SKILLS_DIR/$item"
+      if [[ -L "$target" ]]; then
+        rm "$target"
+        echo "  ✓ Removed symlink: $item"
+      elif [[ -e "$target" ]]; then
+        echo "  ⚠️  $item exists but is not a symlink. Skipping (remove manually if needed)."
+      fi
+    done
+    # Also remove legacy "running-coach" symlink if it exists (from previous deploy.sh version)
+    if [[ -L "$CLAUDE_SKILLS_DIR/running-coach" ]]; then
+      rm "$CLAUDE_SKILLS_DIR/running-coach"
+      echo "  ✓ Removed legacy symlink: running-coach"
     fi
     ;;
+
   --copy|copy)
-    if [[ -e "$TARGET_DIR" ]]; then
-      echo "⚠️  $TARGET_DIR already exists. Remove it first or use a different mode."
-      exit 1
-    fi
-    cp -R "$SOURCE_SKILLS_DIR" "$TARGET_DIR"
-    echo "✓ Copied skills to: $TARGET_DIR"
+    echo "Copying skills to $CLAUDE_SKILLS_DIR..."
+    for item in "${ITEMS[@]}"; do
+      source="$SOURCE_SKILLS_DIR/$item"
+      target="$CLAUDE_SKILLS_DIR/$item"
+      if [[ -e "$target" || -L "$target" ]]; then
+        echo "  ⚠️  $target already exists. Skipping."
+        continue
+      fi
+      cp -R "$source" "$target"
+      echo "  ✓ Copied: $item"
+    done
     ;;
+
   --symlink|symlink|"")
-    if [[ -e "$TARGET_DIR" || -L "$TARGET_DIR" ]]; then
-      echo "⚠️  $TARGET_DIR already exists. Run './scripts/deploy.sh --unlink' first."
-      exit 1
+    echo "Creating symlinks in $CLAUDE_SKILLS_DIR..."
+    # Clean up legacy "running-coach" symlink from old deploy.sh version
+    if [[ -L "$CLAUDE_SKILLS_DIR/running-coach" ]]; then
+      rm "$CLAUDE_SKILLS_DIR/running-coach"
+      echo "  ✓ Cleaned legacy symlink: running-coach"
     fi
-    ln -s "$SOURCE_SKILLS_DIR" "$TARGET_DIR"
-    echo "✓ Symlink created: $TARGET_DIR -> $SOURCE_SKILLS_DIR"
-    echo "  All edits in your repo are now live in Claude."
+    for item in "${ITEMS[@]}"; do
+      source="$SOURCE_SKILLS_DIR/$item"
+      target="$CLAUDE_SKILLS_DIR/$item"
+      if [[ -e "$target" || -L "$target" ]]; then
+        echo "  ⚠️  $item already exists. Run './scripts/deploy.sh --unlink' first to refresh."
+        continue
+      fi
+      ln -s "$source" "$target"
+      echo "  ✓ Linked: $item -> $source"
+    done
+    echo ""
+    echo "All edits in your repo are now live in Claude Code."
+    echo "Note: skills without a SKILL.md (only README.md placeholders) won't appear in /skills yet."
+    echo "      They will once you fill in their SKILL.md during migration."
     ;;
+
   *)
     echo "Unknown mode: $MODE"
     echo "Usage: $0 [--symlink | --copy | --unlink]"
