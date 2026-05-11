@@ -1,0 +1,18 @@
+{
+  "name": "running-coach",
+  "version": "0.1.0",
+  "description": "Personalized running and Hyrox coaching plugin. Includes skills for training plan creation, weekly progress tracking and adjustment, ad-hoc workout building, race-week protocol, and race-day pacing strategy. Supports 10km, half-marathon, marathon, and Hyrox preparation for all levels.",
+  "author": {
+    "name": "Gaspard Peyrot"
+  },
+  "keywords": [
+    "running",
+    "hyrox",
+    "training",
+    "marathon",
+    "half-marathon",
+    "10km",
+    "coaching",
+    "garmin"
+  ]
+}

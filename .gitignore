@@ -1,0 +1,65 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.cursor/
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+config.local.json
+credentials.json
+tokens.json
+
+# Personal data (never commit)
+**/personal/
+**/private/
+my-data/
+
+# Python (if scripts grow into it)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+env/
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Node (if scripts grow into it)
+node_modules/
+npm-debug.log*
+
+# Output / build artifacts
+dist/
+build/
+*.log
+*.tmp
+
+# Garmin / running data exports (local only)
+*.fit
+*.tcx
+*.gpx
+exports/
+
+# Backup folders
+*.backup
+*.bak
+backup/

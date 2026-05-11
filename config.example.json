@@ -1,0 +1,28 @@
+{
+  "_comment": "Copy this file to config.local.json and edit with your own values. config.local.json is gitignored and never committed.",
+  "user": {
+    "name": "Your Name",
+    "language": "fr",
+    "timezone": "Europe/Paris"
+  },
+  "google_calendar": {
+    "training_calendar_id": "YOUR_CALENDAR_ID@group.calendar.google.com",
+    "event_naming": {
+      "completed_prefix": "✅",
+      "cancelled_prefix": "❌",
+      "lightened_suffix": " — Allégé",
+      "race_prefix": "🏁 COMPÉTITION"
+    },
+    "default_hashtag": "#your-plan-tag"
+  },
+  "garmin": {
+    "credentials_env_file": "~/.garmin_credentials",
+    "default_watch_model": "Forerunner 945"
+  },
+  "physiology_defaults": {
+    "hr_max_estimation": "tanaka",
+    "resting_hr": null,
+    "hr_max": null,
+    "vma": null
+  }
+}
