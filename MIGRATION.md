@@ -10,8 +10,8 @@ Legacy version archived in branch [`legacy/v1`](https://github.com/<your-usernam
 
 - [x] **Phase 0** — Repo setup and base structure
 - [x] **Phase 1** — Extract `_shared/` resources (session-schema, vdot-paces, strength-exercises)
-- [ ] **Phase 2** — Extract `training-tracker` skill
-- [ ] **Phase 3** — Extract `workout-builder` skill
+- [x] **Phase 2** — Extract `training-tracker` skill
+- [x] **Phase 3** — Extract `workout-builder` skill
 - [ ] **Phase 4** — Extract `race-week` skill
 - [ ] **Phase 5** — Refactor remaining content into `training-planner`
 - [ ] **Phase 6** — Validation pass + tighten triggers across all skills
@@ -67,6 +67,12 @@ To avoid trigger contention between skills, each one matches a tight set of phra
 - `plugin.json` initialized at v0.1.0
 - `_shared/` placeholder ready
 - Skill placeholders created for the 5 target skills
+
+### 2026-05-12 — Phase 3 (workout-builder)
+- Extracted workout-builder skill with Path A/B workflow
+- Garmin MCP integration validated end-to-end in Claude Code
+- Coaching rules encoded: proactive load management, conservative threshold, 48h recovery rule
+- Note: user-specific pace values still hardcoded — to be moved to config.local.json in Phase 7
 
 ### YYYY-MM-DD — Phase X (...)
 - (fill as you go)
