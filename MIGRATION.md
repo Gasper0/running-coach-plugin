@@ -68,6 +68,15 @@ To avoid trigger contention between skills, each one matches a tight set of phra
 - `_shared/` placeholder ready
 - Skill placeholders created for the 5 target skills
 
+### 2026-05-11 — Phase 2 (training-tracker)
+- Extracted training-tracker skill as first migration target
+- SKILL.md (169 lines) with tight triggers focused on "bilan de la semaine" / "weekly review" phrases
+- tracking-module.md (810 lines) copied verbatim from legacy — full Python implementation for Garmin data collection, comparison, fatigue scoring, plan readjustment
+- Visual weekly recap widget format documented as mandatory output
+- User-specific coaching rules encoded: proactive load management, conservative threshold pace, alcohol/sleep correlation flag
+- Validation: skill detected in Claude Code `/skills`, trigger phrase activates correctly
+- Updated `scripts/deploy.sh` to symlink each skill individually (required for Claude Code detection)
+
 ### 2026-05-12 — Phase 3 (workout-builder)
 - Extracted workout-builder skill with Path A/B workflow
 - Garmin MCP integration validated end-to-end in Claude Code
