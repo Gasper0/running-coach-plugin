@@ -13,7 +13,7 @@ Legacy version archived in branch [`legacy/v1`](https://github.com/<your-usernam
 - [x] **Phase 2** — Extract `training-tracker` skill
 - [x] **Phase 3** — Extract `workout-builder` skill
 - [x] **Phase 4** — Extract `race-week` skill
-- [ ] **Phase 5** — Refactor remaining content into `training-planner`
+- [x] **Phase 5** — Refactor remaining content into `training-planner`
 - [ ] **Phase 6** — Validation pass + tighten triggers across all skills
 - [ ] **Phase 7** *(post-migration)* — Add marketplace.json, publish public, test install from another machine
 
@@ -89,6 +89,14 @@ To avoid trigger contention between skills, each one matches a tight set of phra
 - Mandatory show_widget output for visual race-week timeline
 - Hyrox-specific protein protocol baked in (1.8-2.0 g/kg vs 1.4-1.6 for running)
 - Coaching rules: no experimentation in final 3 days, alcohol pattern recognition, travel adaptation
+
+### 2026-05-13 — Phase 5 (training-planner + CLI fallback)
+- Refactored legacy running-coach into focused training-planner skill
+- Scope limited to plan creation; modifications/reviews/race-week handled by companion skills
+- Differentiated export workflow: calendar all-at-once, Garmin week-by-week
+- Hyrox simplified to "Run Brick" session type in library
+- Personal values (PB, FC max, zones) moved to config.local.json schema
+- Added widget-first + text fallback pattern to training-planner, training-tracker, race-week — skills now work identically on Claude.ai web and Claude Code CLI
 
 ### YYYY-MM-DD — Phase X (...)
 - (fill as you go)
