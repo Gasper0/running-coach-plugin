@@ -1,0 +1,312 @@
+<!--
+  Running Coach — Intake Questionnaire Widget
+  Multi-step form (5 steps + conditional step 6 for Hyrox)
+  Collects all runner profile data in a single artifact
+  On submit: calls sendPrompt() with structured JSON summary
+-->
+<style>
+*{margin:0;box-sizing:border-box}
+:root{--accent:#2ECC71;--accent-hover:#27AE60;--bg:var(--color-background-primary);--bg2:var(--color-background-secondary);--txt:var(--color-text-primary);--txt2:var(--color-text-secondary);--txt3:var(--color-text-tertiary);--brd:var(--color-border-tertiary);--brd2:var(--color-border-secondary);--radius:var(--border-radius-md);--radius-lg:var(--border-radius-lg)}
+body{font-family:var(--font-sans);color:var(--txt);line-height:1.6}
+.wizard{max-width:100%;padding:1rem 0}
+.progress{display:flex;gap:6px;margin-bottom:1.5rem}
+.progress-seg{flex:1;height:4px;border-radius:2px;background:var(--brd);transition:background .3s}
+.progress-seg.done{background:var(--accent)}
+.progress-seg.active{background:var(--accent)}
+.step-label{font-size:13px;color:var(--txt3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:1.2rem}
+.q-group{margin-bottom:1.5rem}
+.q-label{font-size:15px;font-weight:500;margin-bottom:8px}
+.q-hint{font-size:13px;color:var(--txt3);margin-bottom:8px}
+.q-sub{font-size:13px;color:var(--txt3);font-weight:400}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:8px 16px;border-radius:999px;border:0.5px solid var(--brd2);background:transparent;color:var(--txt2);cursor:pointer;font-size:13px;transition:all .15s;white-space:nowrap}
+.chip:hover{border-color:var(--accent);color:var(--txt)}
+.chip.selected{background:var(--accent);color:#fff;border-color:var(--accent)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field label{display:block;font-size:14px;font-weight:500;margin-bottom:4px}
+.field .hint{font-size:12px;color:var(--txt3);margin-bottom:4px}
+.field input,.field select,.field textarea{width:100%;padding:10px 12px;border:0.5px solid var(--brd2);border-radius:var(--radius);background:var(--bg2);color:var(--txt);font-size:14px;font-family:var(--font-sans)}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--accent)}
+.field textarea{min-height:80px;resize:vertical}
+.nav{display:flex;align-items:center;justify-content:space-between;margin-top:1.5rem;padding-top:1rem;border-top:0.5px solid var(--brd)}
+.nav-center{font-size:13px;color:var(--txt3)}
+.btn{padding:10px 20px;border-radius:var(--radius);border:0.5px solid var(--brd2);background:transparent;color:var(--txt);cursor:pointer;font-size:14px;font-family:var(--font-sans);transition:all .15s}
+.btn:hover{border-color:var(--accent)}
+.btn-primary{border-color:var(--txt);font-weight:500}
+.btn-primary:hover{background:var(--txt);color:var(--bg)}
+.btn-submit{border-color:var(--accent);color:var(--accent);font-weight:500}
+.btn-submit:hover{background:var(--accent);color:#fff}
+.hidden{display:none}
+.sep{border:none;border-top:0.5px solid var(--brd);margin:1.5rem 0}
+</style>
+
+<div class="wizard" id="wizard">
+  <div class="progress" id="progress"></div>
+  <div id="steps"></div>
+  <div class="nav">
+    <button class="btn hidden" id="btnBack" onclick="goBack()">Retour</button>
+    <span class="nav-center" id="navLabel"></span>
+    <button class="btn btn-primary" id="btnNext" onclick="goNext()">Continuer →</button>
+  </div>
+</div>
+
+<script>
+const STEPS = [
+  {
+    id:'objectif', title:'OBJECTIF',
+    fields:[
+      {id:'distance',label:'Quelle épreuve souhaites-tu préparer ?',type:'single',
+       options:['10 km','Semi-marathon (21 km)','Marathon (42 km)','Hyrox','Pas encore décidé']},
+      {id:'goal_type',label:'Quel est ton objectif principal ?',type:'single',
+       options:['Terminer la course','Chrono cible précis','Progresser par rapport à un précédent chrono','Première course — découverte']},
+      {id:'race_date',label:'Date de la course',type:'date',showIf:d=>d.distance&&d.distance!=='Pas encore décidé'},
+      {id:'target_time',label:'Chrono cible',type:'time_input',hint:'Ex : 48:00 pour un 10km',showIf:d=>d.goal_type==='Chrono cible précis'||d.goal_type==='Progresser par rapport à un précédent chrono'},
+    ]
+  },
+  {
+    id:'profil', title:'TON PROFIL',
+    fields:[
+      {id:'experience',label:'Depuis combien de temps cours-tu régulièrement ?',type:'single',
+       options:['Moins de 6 mois','6 mois – 1 an','1 – 3 ans','3 – 5 ans','5 ans et plus']},
+      {id:'weekly_km',label:'Volume hebdomadaire actuel',type:'single',
+       options:['0 – 20 km','20 – 40 km','40 – 60 km','60 km+']},
+      {id:'recent_race',label:'Meilleur chrono récent',hint:'12 derniers mois',type:'row',
+       children:[
+         {id:'recent_race_dist',label:'Épreuve',type:'select',options:['— choisir','5 km','10 km','Semi-marathon','Marathon','Autre']},
+         {id:'recent_race_time',label:'Chrono',type:'time_input',hint:'hh:mm:ss'}
+       ]},
+      {id:'activity_level',label:'Activité physique globale hors running',type:'single',
+       options:['Sédentaire (bureau toute la journée)','Modérément actif','Très actif physiquement']},
+    ]
+  },
+  {
+    id:'dispo', title:'DISPONIBILITÉS & ENTRAÎNEMENT',
+    fields:[
+      {id:'sessions_week',label:'Séances running par semaine',type:'single',
+       options:['2 séances','3 séances','4 séances','5 séances et plus']},
+      {id:'days',label:'Jours disponibles',hint:'plusieurs choix',type:'multi',
+       options:['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche']},
+      {id:'max_duration',label:'Durée max par séance',type:'single',
+       options:['Moins de 45 min','45 – 60 min','60 – 90 min','90 min et plus']},
+      {id:'preferred_time',label:'Heure préférée',type:'single',
+       options:['Matin (avant 9h)','Midi','Soir (après 18h)','Variable']},
+      {id:'cross_training',label:'Cross-training pratiqué',hint:'plusieurs choix',type:'multi',
+       options:['Musculation haut du corps','Musculation bas du corps','Hyrox / functional fitness','Vélo / spinning','Natation','Yoga / mobilité','Aucun']},
+    ]
+  },
+  {
+    id:'physio', title:'PHYSIOLOGIE & SANTÉ',
+    fields:[
+      {id:'age',label:'Âge',type:'number',placeholder:'ex : 32',half:true},
+      {id:'sex',label:'Sexe biologique',hint:'Pour estimer la FC max',type:'single',options:['Homme','Femme'],half:true},
+      {id:'weight',label:'Poids (kg)',type:'number',placeholder:'ex : 72',half:true},
+      {id:'height',label:'Taille (cm)',type:'number',placeholder:'ex : 178',half:true},
+      {id:'hr_data',label:'Données cardiaques',hint:'plusieurs choix',type:'multi',
+       options:['FC repos connue','FC max connue','Données HRV disponibles','Aucune — estimer depuis l\'âge']},
+      {id:'vma',label:'VMA',hint:'optionnel',type:'vma'},
+      {id:'terrain',label:'Terrain préféré',hint:'plusieurs choix',type:'multi',
+       options:['Route','Trail / sentiers','Piste d\'athlétisme','Tapis de course']},
+      {id:'injuries',label:'Blessures ou contraintes physiques',type:'textarea',
+       placeholder:'Ex : douleur genou gauche, tendinite achille en 2024, aucune blessure récente…'},
+    ]
+  },
+  {
+    id:'recup', title:'RÉCUPÉRATION & EXPORT',
+    fields:[
+      {id:'recovery',label:'Qualité de ta récupération actuelle',type:'single',
+       options:['Très bonne — je dors bien, peu de stress','Correcte — quelques nuits courtes','Moyenne — fatigue chronique ou stress élevé','Mauvaise — surmenage, peu de sommeil']},
+      {id:'watch',label:'Montre / GPS',type:'single',
+       options:['Garmin','Apple Watch','Polar','Suunto','Coros','Aucune']},
+      {id:'exports',label:'Formats d\'export',hint:'plusieurs choix',type:'multi',
+       options:['Google Calendar','Garmin Connect','Fichier .ics','Excel / CSV','PDF / Word']},
+      {id:'extra_info',label:'Informations complémentaires',hint:'Contraintes d\'agenda, voyages prévus, préférences particulières…',type:'textarea',placeholder:'Optionnel…'},
+    ]
+  },
+  {
+    id:'hyrox', title:'PROFIL HYROX', conditional:true, showIf:d=>d.distance==='Hyrox',
+    fields:[
+      {id:'hyrox_format',label:'Format de compétition',type:'single',
+       options:['Solo','Doubles','Relay','Pro','Pas encore décidé']},
+      {id:'hyrox_best',label:'Meilleur temps Hyrox',hint:'optionnel',type:'time_input',placeholder:'ex : 1:08:30',half:true},
+      {id:'hyrox_target',label:'Objectif chrono',type:'time_input',placeholder:'ex : 1:02:00',half:true},
+      {id:'hyrox_date',label:'Date de la compétition',type:'date',half:true},
+      {id:'hyrox_sim_freq',label:'Fréquence des simulations',type:'single',half:true,
+       options:['Jamais','1×/mois','2×/mois','1×/semaine']},
+      {id:'hyrox_weaknesses',label:'Où es-tu le plus limité ?',hint:'plusieurs choix',type:'multi',
+       options:['La course (cardio / allure)','Les stations (force / endurance musculaire)','Les transitions station → run','La gestion de l\'effort sur la durée']},
+      {id:'hyrox_stations',label:'Stations les plus difficiles',hint:'plusieurs choix',type:'multi',
+       options:['SkiErg','Sled Push','Sled Pull','Burpee Broad Jump','Rowing','Farmer\'s Carry','Sandbag Lunges','Wall Balls','Aucune en particulier']},
+    ]
+  }
+];
+
+let current = 0;
+let data = {};
+
+function getVisibleSteps(){
+  return STEPS.filter(s=>!s.conditional||!s.showIf||s.showIf(data));
+}
+
+function renderProgress(){
+  const vis = getVisibleSteps();
+  const el = document.getElementById('progress');
+  el.innerHTML = vis.map((_,i)=>`<div class="progress-seg ${i<current?'done':''} ${i===current?'active':''}"></div>`).join('');
+}
+
+function renderStep(){
+  const vis = getVisibleSteps();
+  const step = vis[current];
+  if(!step) return;
+  const el = document.getElementById('steps');
+  let html = `<div class="step-label">${current+1} / ${vis.length} — ${step.title}</div>`;
+  let inRow = false;
+  step.fields.forEach((f,fi)=>{
+    if(f.showIf && !f.showIf(data)) return;
+    const startRow = f.half && !inRow;
+    const endRow = !f.half && inRow;
+    if(endRow){ html+='</div>'; inRow=false; }
+    if(startRow){ html+='<div class="row2">'; inRow=true; }
+    else if(f.half && inRow && fi>0){ /* continuing row */ }
+    html += renderField(f);
+    if(inRow){
+      const nextF = step.fields[fi+1];
+      if(!nextF||!nextF.half||(nextF.showIf&&!nextF.showIf(data))){html+='</div>';inRow=false;}
+    }
+  });
+  if(inRow) html+='</div>';
+  el.innerHTML = html;
+  const isLast = current === vis.length - 1;
+  const btnNext = document.getElementById('btnNext');
+  const btnBack = document.getElementById('btnBack');
+  btnBack.classList.toggle('hidden', current===0);
+  if(isLast){
+    btnNext.textContent = 'Générer mon plan ↗';
+    btnNext.className = 'btn btn-submit';
+  } else {
+    btnNext.textContent = 'Continuer →';
+    btnNext.className = 'btn btn-primary';
+  }
+  document.getElementById('navLabel').textContent = `Étape ${current+1} sur ${vis.length}`;
+  renderProgress();
+}
+
+function renderField(f){
+  let h = `<div class="q-group">`;
+  if(f.type==='row'){
+    h+=`<div class="q-label">${f.label} ${f.hint?`<span class="q-sub">(${f.hint})</span>`:''}</div>`;
+    h+=`<div class="row2">`;
+    f.children.forEach(c=>{ h+=renderFieldInner(c); });
+    h+=`</div></div>`;
+    return h;
+  }
+  if(f.type==='vma'){
+    const val = data[f.id]||'';
+    const src = data[f.id+'_source']||'';
+    h+=`<div class="q-label">${f.label} <span class="q-sub">(${f.hint||''})</span></div>`;
+    h+=`<div class="q-hint">Laisse vide si tu ne la connais pas — elle sera estimée depuis ton chrono.</div>`;
+    h+=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">`;
+    h+=`<input type="text" value="${val}" placeholder="ex : 17.5" style="width:120px" oninput="setData('${f.id}',this.value)">`;
+    h+=`<span style="font-size:13px;color:var(--txt2)">km/h</span>`;
+    h+=`</div>`;
+    h+=`<div class="chips">`;
+    ['Test terrain','Donnée Garmin','Calculée depuis un chrono'].forEach(o=>{
+      h+=`<div class="chip ${src===o?'selected':''}" onclick="setData('${f.id}_source','${o.replace(/'/g,"\\'")}');renderStep()">${o}</div>`;
+    });
+    h+=`</div></div>`;
+    return h;
+  }
+  return renderFieldInner(f)+'</div>';
+}
+
+function renderFieldInner(f){
+  let h='';
+  if(f.type==='single'){
+    h+=`<div class="q-label">${f.label} ${f.hint?`<span class="q-sub">(${f.hint})</span>`:''}</div>`;
+    h+=`<div class="chips">`;
+    f.options.forEach(o=>{
+      const sel = data[f.id]===o;
+      h+=`<div class="chip ${sel?'selected':''}" onclick="setData('${f.id}','${o.replace(/'/g,"\\'")}');renderStep()">${o}</div>`;
+    });
+    h+=`</div>`;
+  } else if(f.type==='multi'){
+    h+=`<div class="q-label">${f.label} ${f.hint?`<span class="q-sub">(${f.hint})</span>`:''}</div>`;
+    h+=`<div class="chips">`;
+    const arr = data[f.id]||[];
+    f.options.forEach(o=>{
+      const sel = arr.includes(o);
+      h+=`<div class="chip ${sel?'selected':''}" onclick="toggleMulti('${f.id}','${o.replace(/'/g,"\\'")}');renderStep()">${o}</div>`;
+    });
+    h+=`</div>`;
+  } else if(f.type==='date'){
+    h+=`<div class="field"><label>${f.label}</label>`;
+    h+=`<input type="date" value="${data[f.id]||''}" onchange="setData('${f.id}',this.value)"></div>`;
+  } else if(f.type==='number'){
+    h+=`<div class="field"><label>${f.label}</label>`;
+    if(f.hint) h+=`<div class="hint">${f.hint}</div>`;
+    h+=`<input type="number" value="${data[f.id]||''}" placeholder="${f.placeholder||''}" oninput="setData('${f.id}',this.value)"></div>`;
+  } else if(f.type==='time_input'){
+    h+=`<div class="field"><label>${f.label}</label>`;
+    if(f.hint) h+=`<div class="hint">${f.hint}</div>`;
+    h+=`<input type="text" value="${data[f.id]||''}" placeholder="${f.placeholder||'hh:mm:ss'}" oninput="setData('${f.id}',this.value)"></div>`;
+  } else if(f.type==='select'){
+    h+=`<div class="field"><label>${f.label}</label>`;
+    h+=`<select onchange="setData('${f.id}',this.value)">`;
+    f.options.forEach(o=>{h+=`<option ${data[f.id]===o?'selected':''}>${o}</option>`;});
+    h+=`</select></div>`;
+  } else if(f.type==='textarea'){
+    h+=`<div class="field"><label>${f.label}</label>`;
+    if(f.hint) h+=`<div class="hint">${f.hint}</div>`;
+    h+=`<textarea placeholder="${f.placeholder||''}" oninput="setData('${f.id}',this.value)">${data[f.id]||''}</textarea></div>`;
+  }
+  return h;
+}
+
+function setData(key,val){ data[key]=val; }
+function toggleMulti(key,val){
+  if(!data[key]) data[key]=[];
+  const i=data[key].indexOf(val);
+  if(i>=0) data[key].splice(i,1); else data[key].push(val);
+}
+
+function goNext(){
+  const vis=getVisibleSteps();
+  if(current<vis.length-1){ current++; renderStep(); window.scrollTo(0,0); }
+  else submitForm();
+}
+function goBack(){
+  if(current>0){ current--; renderStep(); window.scrollTo(0,0); }
+}
+
+function submitForm(){
+  const lines=[];
+  lines.push('🏃 **PROFIL COUREUR — Données du questionnaire**\n');
+  lines.push('Voici mes réponses au questionnaire Running Coach. Génère mon plan d\'entraînement personnalisé.\n');
+  lines.push('---');
+  const vis=getVisibleSteps();
+  vis.forEach(step=>{
+    lines.push(`\n**${step.title}**`);
+    step.fields.forEach(f=>{
+      if(f.showIf&&!f.showIf(data)) return;
+      if(f.type==='row'){
+        f.children.forEach(c=>{
+          const v=data[c.id];
+          if(v&&v!=='— choisir') lines.push(`- ${c.label} : ${v}`);
+        });
+        return;
+      }
+      const v=data[f.id];
+      if(!v||(Array.isArray(v)&&v.length===0)) return;
+      const display=Array.isArray(v)?v.join(', '):v;
+      lines.push(`- ${f.label} : ${display}`);
+      if(f.type==='vma'&&data[f.id+'_source']){
+        lines.push(`  (source : ${data[f.id+'_source']})`);
+      }
+    });
+  });
+  lines.push('\n---');
+  lines.push('Merci de construire mon plan en suivant les étapes de la skill Running Coach (profil physiologique → zones → plan semaine par semaine → exports demandés).');
+  sendPrompt(lines.join('\n'));
+}
+
+renderStep();
+</script>

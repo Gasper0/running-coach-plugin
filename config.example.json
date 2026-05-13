@@ -1,28 +1,84 @@
 {
-  "_comment": "Copy this file to config.local.json and edit with your own values. config.local.json is gitignored and never committed.",
+  "_comment": "Copy this file to config.local.json (in the plugin root) and edit with your own values. config.local.json is gitignored and never committed. All skills in the plugin read from config.local.json when it exists.",
+
   "user": {
     "name": "Your Name",
     "language": "fr",
     "timezone": "Europe/Paris"
   },
-  "google_calendar": {
-    "training_calendar_id": "YOUR_CALENDAR_ID@group.calendar.google.com",
-    "event_naming": {
-      "completed_prefix": "✅",
-      "cancelled_prefix": "❌",
-      "lightened_suffix": " — Allégé",
-      "race_prefix": "🏁 COMPÉTITION"
-    },
-    "default_hashtag": "#your-plan-tag"
-  },
-  "garmin": {
-    "credentials_env_file": "~/.garmin_credentials",
-    "default_watch_model": "Forerunner 945"
-  },
-  "physiology_defaults": {
-    "hr_max_estimation": "tanaka",
-    "resting_hr": null,
+
+  "physiology": {
+    "age": null,
+    "weight_kg": null,
+    "height_cm": null,
+    "sex": null,
     "hr_max": null,
-    "vma": null
+    "hr_resting": null,
+    "vma_kmh": null,
+    "vo2max": null
+  },
+
+  "performance_history": {
+    "5km_pb": null,
+    "10km_pb": null,
+    "10km_pb_date": null,
+    "semi_pb": null,
+    "semi_pb_date": null,
+    "marathon_pb": null,
+    "marathon_pb_date": null,
+    "hyrox_pb": null,
+    "hyrox_pb_format": null,
+    "hyrox_pb_date": null
+  },
+
+  "training_zones": {
+    "_comment": "Either fill these explicitly, or leave null and let the skill derive them from performance_history",
+    "z1_recovery_pace_min_per_km": null,
+    "z2_endurance_pace_min_per_km": null,
+    "z3_tempo_pace_min_per_km": null,
+    "z4_threshold_pace_min_per_km": null,
+    "z5_vma_pace_min_per_km": null,
+    "z1_hr_max_pct": 65,
+    "z2_hr_max_pct": 75,
+    "z3_hr_max_pct": 85,
+    "z4_hr_max_pct": 92,
+    "z5_hr_max_pct": 100
+  },
+
+  "training_preferences": {
+    "weekly_volume_km_baseline": null,
+    "sessions_per_week": 5,
+    "rest_day": "Monday",
+    "quality_days": ["Tuesday", "Thursday"],
+    "long_run_day": "Sunday",
+    "strength_day": "Saturday",
+    "default_session_start_morning": "07:00",
+    "default_session_start_evening": "18:00"
+  },
+
+  "integrations": {
+    "google_calendar": {
+      "training_calendar_id": "YOUR_CALENDAR_ID@group.calendar.google.com",
+      "event_naming": {
+        "completed_prefix": "✅",
+        "cancelled_prefix": "❌",
+        "lightened_suffix": " — Allégé",
+        "race_prefix": "🏁 COMPÉTITION"
+      },
+      "default_hashtag": null
+    },
+    "garmin": {
+      "weekly_push_strategy": "current_week_only",
+      "auto_cleanup_completed": true,
+      "default_watch_model": null
+    }
+  },
+
+  "coaching_rules": {
+    "_comment": "Personal coaching preferences that override skill defaults",
+    "conservative_threshold_offset_seconds": 15,
+    "min_hours_between_quality_sessions": 48,
+    "stepback_week_frequency": 4,
+    "stepback_volume_reduction_pct": 25
   }
 }

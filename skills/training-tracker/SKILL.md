@@ -7,7 +7,7 @@ description: Weekly review of a running training plan. Collects past-week activi
 
 ## Purpose
 
-Run a structured weekly review of the user's training: pull last week's data from Garmin Connect, compare it to the planned sessions, assess accumulated fatigue, and propose evidence-based adjustments to the coming weeks of the plan. Always conclude with a visual weekly recap widget — never as plain text.
+Run a structured weekly review of the user's training: pull last week's data from Garmin Connect, compare it to the planned sessions, assess accumulated fatigue, and propose evidence-based adjustments to the coming weeks of the plan. Always conclude with a visual recap (widget preferred, text fallback acceptable).
 
 ## When to use this skill
 
@@ -23,6 +23,14 @@ Run a structured weekly review of the user's training: pull last week's data fro
 - Single workout creation/modification → use `workout-builder`
 - Race-week protocol → use `race-week`
 - Race pacing strategy → use `race-strategy`
+
+## Execution context detection
+
+**Before producing the final recap**, detect the execution context:
+- **If `show_widget` tool is available** (Claude.ai web) → use visual widget format
+- **If `show_widget` is unavailable** (Claude Code CLI, API) → use structured markdown fallback
+
+Both formats present the same information; only the rendering differs.
 
 ## Inputs needed
 
@@ -104,11 +112,11 @@ If zone recalibration is needed, apply half the detected delta to all remaining 
 
 Reference: full readjustment logic in `references/tracking-module.md` (function `readjust_plan`).
 
-## Output: visual weekly recap widget — REQUIRED
+## Output: visual recap (widget OR text fallback)
 
-Always conclude the review with a visual widget via the `visualize:show_widget` tool. Never deliver the recap as plain text or as a markdown table only.
+### Path A — Visual widget (when `show_widget` available)
 
-The widget must contain, in this order:
+Always conclude the review with a visual widget via the `visualize:show_widget` tool. The widget must contain, in this order:
 
 1. **Header** — week number, phase name, plan tag (e.g. "Semaine 5 — Peak — #10km-plan-2026")
 
@@ -130,9 +138,50 @@ The widget must contain, in this order:
 
 5. **Fatigue level banner** — large colored band with emoji, score, level, and headline recommendation in one phrase ("On garde le plan", "On réduit la semaine", etc.)
 
-6. **Proposed adjustments** — bullet list of concrete changes to next week's sessions. Each adjustment is one line ("Mardi VMA : −1 série", "Dimanche SL : 16km → 13km").
+6. **Proposed adjustments** — bullet list of concrete changes to next week's sessions.
 
 Refer to `visualize:read_me` with module `chart` and `data_viz` before building the widget to load the styling tokens.
+
+### Path B — Structured markdown fallback (when `show_widget` unavailable)
+
+If the widget tool is not available, produce the recap in this exact markdown format:
+
+```
+## Bilan Semaine [N] — [Phase] — [Plan tag]
+
+### Métriques de la semaine
+| Métrique | Valeur |
+|---|---|
+| 🏃 Distance totale | [N] km |
+| ⏱ Temps total | [h:mm] |
+| 🔥 Charge totale | [N] |
+| 😴 Sommeil moyen | [score]/100 |
+
+### Séances de la semaine
+| Date | Statut | Séance | Durée | Distance | Allure moy | FC moy | Charge |
+|---|---|---|---|---|---|---|---|
+| Lun 13 | 😴 Repos | — | — | — | — | — | — |
+| Mar 14 | 🟢 OK | 🔴 FR 5×1000m | 1h05 | 11.2 km | 4:15/km | 168 bpm | 145 |
+| Mer 15 | 🟢 OK | 🟢 EF 45min | 45min | 8.5 km | 5:18/km | 142 bpm | 65 |
+| ... | ... | ... | ... | ... | ... | ... | ... |
+
+### Signaux de récupération
+| Jour | FC repos | Sommeil | Body Battery | Notes |
+|---|---|---|---|---|
+| Lun | 51 bpm | 78/100 | 85 | — |
+| Mar | 52 bpm | 72/100 | 78 | — |
+| ... | ... | ... | ... | ... |
+
+### 🟡 Niveau de fatigue : MODÉRÉ (score: 62/100)
+Recommandation : **maintenir le plan tel quel**.
+
+### Ajustements proposés pour la semaine suivante
+- Mardi VMA : pas de changement
+- Dimanche SL : pas de changement
+- Note : surveiller la FC repos sur Mer-Jeu si elle continue de monter
+```
+
+Use the same color emojis and status codes as the widget for visual consistency across surfaces.
 
 ## Coaching rules to respect (user-specific)
 
@@ -161,7 +210,8 @@ Never "make up" a missed session by doubling another. If a key session (VMA, thr
 
 - **Garmin MCP** (`garmin:get_activities`, `garmin:get_sleep`, `garmin:get_heart_rate`, `garmin:get_body_battery`, `garmin:get_training_readiness`, `garmin:get_weekly_summary`) — primary data source for Stage 1
 - **Google Calendar MCP** (`google-calendar:list-events`) — fetch planned sessions for the week, identified by plan hashtag (e.g. `#10km-plan-2026`)
-- **`visualize:show_widget`** with `visualize:read_me` first — for the mandatory visual output in Stage 5
+- **`visualize:show_widget`** with `visualize:read_me` first — when available, for visual output
+- **Markdown fallback** — when widget unavailable, structured text recap
 
 ## References
 

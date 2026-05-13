@@ -7,7 +7,7 @@ description: Race-week protocol for a running event happening in the next 1-7 da
 
 ## Purpose
 
-Deliver a structured race-week protocol covering the 7 days before a race. The protocol adapts to the distance — a 10km does not require the same approach as a marathon. Always output a visual checklist via `show_widget` (no plain markdown fallback).
+Deliver a structured race-week protocol covering the 7 days before a race. The protocol adapts to the distance — a 10km does not require the same approach as a marathon. Always output a visual checklist via `show_widget` if available, otherwise structured markdown fallback.
 
 ## When to use this skill
 
@@ -24,6 +24,14 @@ Deliver a structured race-week protocol covering the 7 days before a race. The p
 - Creating new training plans → use `training-planner`
 - Weekly review of training → use `training-tracker`
 - Creating/modifying individual workouts → use `workout-builder`
+
+## Execution context detection
+
+**Before producing the final timeline**, detect the execution context:
+- **If `show_widget` tool is available** (Claude.ai web) → use visual timeline widget
+- **If `show_widget` is unavailable** (Claude Code CLI, API) → use structured markdown fallback
+
+Both formats present the same protocol; only the rendering differs.
 
 ## Inputs needed
 
@@ -128,37 +136,85 @@ The user prepares the night before:
 - [ ] Phone charged, transport plan to the start
 - [ ] Cash + ID + transport pass
 
-## Output: visual race-week widget — REQUIRED
+## Output: visual timeline (widget OR text fallback)
 
-Always conclude the protocol with a `visualize:show_widget` call. Never deliver as plain markdown only.
+### Path A — Visual widget (when `show_widget` available)
 
-The widget must contain, in this order:
+Always conclude the protocol with a `visualize:show_widget` call. The widget must contain, in this order:
 
 1. **Header banner** — distance, race date, time remaining (e.g. "🏁 Marathon Paris — Dimanche 21 sept. — J-5")
 
 2. **7-day timeline grid** (J-7 to J0 as columns, rows as themes):
    - Row 1 — 🏃 Training: session for that day (or "rest")
-   - Row 2 — 🍝 Nutrition: focus of the day (e.g. "Normal", "↑ Carbs", "Carb loading J-3")
+   - Row 2 — 🍝 Nutrition: focus of the day
    - Row 3 — 💧 Hydration: target ml/day
    - Row 4 — 😴 Sleep: target hours + reminder
 
-3. **Race-morning timeline card** — backtimed from the race start hour:
-   - Wake up
-   - Breakfast (with macros)
-   - Last bathroom break
-   - Travel to start
-   - Bag check
-   - Warm-up
-   - Final hydration sip
-   - Race start
+3. **Race-morning timeline card** — backtimed from the race start hour
 
-4. **Equipment checklist** — visual to-do list with checkboxes, generated from the section above + Hyrox-specific items if applicable
+4. **Equipment checklist** — visual to-do list with checkboxes
 
 5. **Foods to avoid banner** — red-tinted card with the J-3 to J0 prohibitions
 
-6. **Mental cues card** — 2-3 short, personalized cues based on the distance and the user's known weaknesses (from training-tracker history if available)
+6. **Mental cues card** — 2-3 short, personalized cues
 
 Refer to `visualize:read_me` with module `interactive` before building the widget.
+
+### Path B — Structured markdown fallback (when `show_widget` unavailable)
+
+If the widget tool is not available, produce the protocol in this exact markdown format:
+
+```
+## 🏁 [Distance] [Race name] — [Date] — J-[N]
+
+### Timeline jour par jour
+
+| Jour | Date | Training | Nutrition | Hydratation | Sommeil |
+|---|---|---|---|---|---|
+| J-7 | Lun 14 | Repos | Normale | 30 ml/kg | 8h |
+| J-6 | Mar 15 | EF 35min | Normale | 30 ml/kg | 8h |
+| J-5 | Mer 16 | Tempo 30min | ↑ Carbs | 35 ml/kg | 8h |
+| J-4 | Jeu 17 | EF 25min + strides | ↑ Carbs | 35 ml/kg | 8h |
+| J-3 | Ven 18 | EF 20min | Carb loading | 40 ml/kg | 8h+ |
+| J-2 | Sam 19 | Repos / mobilité | Carb loading | 40 ml/kg | 9h |
+| J-1 | Dim 20 | Activation 15min | Carb loading peak | 40 ml/kg | 8h+ |
+| J0 | Lun 21 | 🏁 COURSE | Petit-déj 3h avant | 500ml + sip | — |
+
+### 🕖 Timeline matin de course (départ 9:00)
+- 06:00 — Réveil
+- 06:15 — Petit-déjeuner (100-130g glucides)
+- 07:30 — Sortie maison, route vers le départ
+- 08:00 — Arrivée sur site, retrait dossard
+- 08:15 — Échauffement léger
+- 08:45 — Mise en place dans le sas
+- 09:00 — 🏁 DÉPART
+
+### ✅ Checklist équipement (à préparer la veille)
+- [ ] Dossard + épingles
+- [ ] Chaussures testées
+- [ ] Tenue testée (haut, bas, chaussettes)
+- [ ] Montre GPS chargée (> 80%)
+- [ ] Gels énergétiques [N] (selon distance)
+- [ ] Anti-frottement (vaseline)
+- [ ] Crème solaire si pertinent
+- [ ] Tenue chaude pour après
+- [ ] Téléphone chargé, plan de transport
+- [ ] Argent + pièce d'identité
+
+### 🚫 À ÉVITER de J-3 à J0
+- Aliments jamais testés en entraînement
+- Fibres élevées en J-1 (légumes crus, céréales complètes)
+- **Alcool dès J-3**
+- Épicé, gras lourd en J-1
+- Nouvelle dose / type de caféine
+
+### 🧠 Mantras et préparation mentale
+- [Mantra 1 personnalisé selon distance]
+- [Mantra 2]
+- En cas de difficulté : [stratégie de retour au mental]
+```
+
+Use the same emojis and structure as the widget for visual consistency across surfaces.
 
 ## Coaching rules to enforce (user-specific)
 
