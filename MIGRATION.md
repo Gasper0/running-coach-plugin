@@ -98,6 +98,12 @@ To avoid trigger contention between skills, each one matches a tight set of phra
 - Personal values (PB, FC max, zones) moved to config.local.json schema
 - Added widget-first + text fallback pattern to training-planner, training-tracker, race-week — skills now work identically on Claude.ai web and Claude Code CLI
 
+### 2026-05-13 — Phase 6.1 (race-strategy rapatriation)
+- Rapatriated race-strategy from standalone skill into the plugin
+- Enriched with NOT-triggers, widget-first + text fallback pattern, coordination notes
+- All 5 skills now live in the plugin structure
+- Next: Phase 6.2 (claude.ai bridge + legacy deactivation), Phase 6.3 (trigger validation)
+
 ### YYYY-MM-DD — Phase X (...)
 - (fill as you go)
 
