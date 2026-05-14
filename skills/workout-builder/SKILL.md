@@ -1,6 +1,6 @@
 ---
 name: workout-builder
-description: Create or modify a single running workout and push it to Garmin Connect. Use ONLY when the user requests a one-off workout (not a full plan) or wants to modify a session already scheduled. Trigger phrases include "crée-moi une séance de [VMA/seuil/EF/long]", "construis un workout Garmin pour [séance]", "modifie ma séance de [jour]" (priority case), "ajoute des fractionnés à mon plan", "fais une séance de seuil pour demain", "déplace ma VMA à mercredi". DO NOT trigger for creating new full training plans (use training-planner), weekly progress reviews (use training-tracker), race-day pacing (use race-strategy), or race-week nutrition (use race-week).
+description: Create or modify a single running workout PROACTIVELY and push it to Garmin Connect. Use ONLY when the user requests a one-off workout (not a full plan) or wants to modify/move a session already scheduled. Trigger phrases include "crée-moi une séance de [VMA/seuil/EF/long]", "construis un workout Garmin pour [séance]", "modifie ma séance de [jour]" (priority case), "ajoute des fractionnés à mon plan", "fais une séance de seuil pour demain", "déplace ma VMA à mercredi". DO NOT trigger for creating new full training plans (use training-planner), weekly progress reviews (use training-tracker), retrospective analysis of missed/skipped sessions like "j'ai raté ma VMA" (use training-tracker — it handles both review AND adjustment), race-day pacing (use race-strategy), or race-week nutrition (use race-week).
 ---
 
 # Workout Builder
@@ -31,7 +31,64 @@ This skill handles two distinct flows:
 - Race pacing strategy → use `race-strategy`
 - Race-week protocol → use `race-week`
 
-## Inputs needed
+## Garmin MCP availability check (do this first)
+
+This skill is fundamentally about pushing structured workouts to Garmin. **Before any other action**, verify Garmin MCP is available.
+
+**If Garmin MCP tools are available** (typical on Cowork or Claude Code) → proceed normally with Path A or Path B below.
+
+**If Garmin MCP is NOT available** (typical on claude.ai web), tell the user immediately:
+
+> "Pour pousser une séance sur Garmin directement, j'ai besoin du serveur Garmin MCP qui n'est pas accessible ici (claude.ai web). Deux options :
+>
+> **(1)** Bascule sur **Cowork** pour le push direct sur ta montre
+> **(2)** Je te génère la séance en format texte structuré — tu la saisis manuellement sur Garmin Connect web
+>
+> Tu préfères quoi ?"
+
+If the user chooses option (1), confirm and stop. They'll reopen the request in Cowork.
+
+If the user chooses option (2), proceed to the workout design (Stage B1 below), then **deliver the workout in the manual-input format**:
+
+```
+## 📝 Séance à saisir sur Garmin Connect
+
+URL : https://connect.garmin.com/modern/workouts
+
+### Étape par étape
+
+1. Échauffement
+   - Type: Échauffement
+   - Durée: 15:00 (minutes)
+   - Cible: Aucune
+
+2. Pause (Lap manuel)
+   - Type: Repos
+   - Durée: Lap (ouvert)
+   - Cible: Aucune
+
+3. Bloc principal — répéter 5 fois :
+   - Type: Intervalle
+   - Distance: 1000 m
+   - Cible: Allure 4:02–4:08/km
+
+4. Récupération entre répétitions
+   - Type: Récupération
+   - Durée: 1:30
+   - Cible: Aucune
+
+5. Retour au calme
+   - Type: Retour au calme
+   - Durée: 10:00
+   - Cible: Aucune
+
+### Planifier
+Une fois créé, planifie le workout sur la date cible dans le calendrier Garmin.
+```
+
+This format follows the Garmin Connect web interface step-by-step. The user can copy-paste each step.
+
+## Inputs needed (regardless of execution surface)
 
 Before doing anything, confirm with the user:
 
@@ -39,9 +96,8 @@ Before doing anything, confirm with the user:
 2. **Date** — exact date of the session (Garmin schedules on specific dates, not relative)
 3. **Session type** — easy, long run, tempo, threshold, VMA/intervals, recovery, hyrox-specific
 4. **Structure** — duration, distance, number of reps, target paces, target HR zones
-5. **Push targets confirmation** — by default push to Garmin only; ask explicitly if user wants Google Calendar sync too
 
-Do NOT push to Garmin without explicit confirmation of the structure. Always show the user a summary of the workout before calling `garmin:create_workout`.
+Do NOT design the workout without explicit confirmation of the structure. Always show the user a summary before pushing or generating the manual format.
 
 ## Path A — Modify an existing scheduled session (priority workflow)
 
@@ -49,16 +105,16 @@ This is the most common case. The user already has a plan with sessions schedule
 
 ### Step A1 — Locate the existing session
 
+**If Garmin MCP available:**
 1. Identify which session the user is talking about (date + type, e.g. "ma VMA de mardi 19 mai")
 2. Fetch the current state from Garmin:
    ```
    garmin:list_workouts
    ```
    Look for the workout scheduled on the target date.
-3. If the user mentions Google Calendar tagging (e.g. `#10km-plan-2026`), also fetch the corresponding GCal event for cross-reference:
-   ```
-   google-calendar:search-events  # with the date and plan tag
-   ```
+3. If the user mentions Google Calendar tagging (e.g. `#10km-plan-2026`), also fetch the corresponding GCal event for cross-reference.
+
+**If Garmin MCP not available:** ask the user to describe the current session as they remember it, or fetch it from the user's Google Calendar via `google-calendar:search-events` if available.
 
 ### Step A2 — Determine what changes
 
@@ -71,11 +127,7 @@ Common modifications:
 | Change intensity (pace targets, HR zones) | Modify step targets, recreate workout |
 | Change session type entirely | Delete old workout, create new one |
 
-⚠️ **Garmin does not support in-place workout editing via MCP.** Modifications = delete + recreate. Always:
-1. Capture the existing `workout_id` and its `scheduled_date`
-2. `garmin:delete_workout` with that ID
-3. Create the new workout (Step B2 below)
-4. Schedule it (Step B3 below)
+⚠️ **Garmin does not support in-place workout editing via MCP.** Modifications = delete + recreate.
 
 ### Step A3 — Confirm before destroying
 
@@ -104,9 +156,11 @@ cooldown (typically 5–10 min, easy pace)
 
 For pace targets, derive from the user's known zones (Z1–Z5 in `../_shared/vdot-paces.md`) or from a recent race time. **Default to conservative**: threshold pace ≈ 10km PB pace + 12–18 s/km, never less.
 
-### Step B2 — Create the workout in Garmin
+### Step B2 — Create the workout in Garmin (or generate manual format)
 
-Use `garmin:create_workout` with the structure built in Step B1. Capture the returned `workout_id` immediately — you'll need it for scheduling.
+**If Garmin MCP available** — use `garmin:create_workout` with the structure built in Step B1. Capture the returned `workout_id` immediately — you'll need it for scheduling.
+
+**If Garmin MCP not available** — generate the manual-input format (see "Garmin MCP availability check" section above).
 
 **Critical formatting rules** (full details in `references/garmin-workout-rules.md`):
 - Pace targets: integers in seconds/km (e.g. 242 for 4:02/km, not "4:02")
@@ -116,9 +170,11 @@ Use `garmin:create_workout` with the structure built in Step B1. Capture the ret
 
 ### Step B3 — Schedule the workout
 
-Use `garmin:schedule_workout` with the `workout_id` from Step B2 and the target date.
+**If Garmin MCP available:** use `garmin:schedule_workout` with the `workout_id` from Step B2 and the target date.
 
 ⚠️ **Never call `schedule_workout` twice on the same workout** — this creates duplicates that can't be cleanly deleted without recreating the workout. If you need to reschedule, delete first, then create + schedule fresh.
+
+**If Garmin MCP not available:** include the scheduling step in the manual format (step 5 of the example above: "Une fois créé, planifie le workout sur la date cible").
 
 ## Pace targets and HR zones
 
@@ -136,21 +192,20 @@ When in doubt about a pace target, ask the user — never invent a value that co
 
 By default, do NOT push the workout to Google Calendar. The user uses GCal as a separate planning layer.
 
-If the user explicitly says "ajoute aussi sur mon calendrier" or "mets-le dans mon Google Calendar", then:
+If the user explicitly says "ajoute aussi sur mon calendrier" or "mets-le dans mon Google Calendar", then use `google-calendar:create-event`:
+- Title: emoji + code + brief description (e.g. "🔴 FR 5×1000m seuil")
+- Color matching the session type (see `../_shared/session-schema.md`)
+- Description: full workout structure
+- Hashtag at the end of description (e.g. `#10km-plan-2026`)
+- `sendUpdates: "none"` — do NOT send notifications
 
-1. Confirm the training calendar name (the user's training calendar ID is in their `config.local.json` — typically tagged `#10km-plan-2026` or similar in event titles)
-2. Use `google-calendar:create-event` with:
-   - Title: emoji + code + brief description (e.g. "🔴 FR 5×1000m seuil")
-   - Color matching the session type (see `../_shared/session-schema.md` table)
-   - Description: full workout structure
-   - Hashtag at the end of description (e.g. `#10km-plan-2026`)
-   - `sendUpdates: "none"` — do NOT send notifications
+The GCal MCP works on claude.ai web (it's a remote MCP), so calendar sync is available across all surfaces — only the Garmin push depends on local MCP availability.
 
 ## Cleanup rules
 
 After a workout is completed (or cancelled), the user wants their Garmin to stay clean.
 
-If the user mentions a session was done or skipped, ask if they want to delete the corresponding workout:
+If the user mentions a session was done or skipped, ask if they want to delete the corresponding workout (Garmin MCP only):
 
 ```
 garmin:list_workouts
@@ -162,7 +217,7 @@ This keeps the watch interface uncluttered for the next session.
 
 ## Output format
 
-After every successful push, present a summary in this exact format:
+After every successful push (or manual format generation), present a summary in this exact format:
 
 ```
 ✅ Séance créée et programmée
@@ -174,10 +229,10 @@ After every successful push, present a summary in this exact format:
 ❤️ FC cible : [HR zone]
 
 📲 Push :
-  • Garmin Connect ✓
+  • Garmin Connect [✓ direct / 📝 format manuel généré]
   • Google Calendar [✓ / skipped]
 
-[Si modification :] Ancienne séance supprimée : [id supprimé]
+[Si modification :] Ancienne séance supprimée : [id supprimé ou "à supprimer manuellement"]
 ```
 
 ## References

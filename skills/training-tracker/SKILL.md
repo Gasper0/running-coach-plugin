@@ -1,6 +1,6 @@
 ---
 name: training-tracker
-description: Weekly review of a running training plan. Collects past-week activities from Garmin Connect (and optionally Strava), compares planned vs actual sessions, analyzes fatigue signals (Body Battery, resting HR, sleep score, Training Readiness), and proposes adjustments to upcoming weeks. ONLY trigger when the user explicitly asks for a weekly review with phrases like "bilan de la semaine", "weekly review", "comment s'est passée ma semaine", "ajuste mon plan", or "analyse mes données Garmin de la semaine". DO NOT trigger for creating new training plans (use training-planner), designing individual workouts (use workout-builder), race-day pacing (use race-strategy), or race-week nutrition (use race-week).
+description: Weekly review of a running training plan. Collects past-week activities from Garmin Connect (and optionally Strava), compares planned vs actual sessions, analyzes fatigue signals (Body Battery, resting HR, sleep score, Training Readiness), and proposes adjustments to upcoming weeks. ALSO handles retrospective analysis of individual sessions ("j'ai raté ma VMA", "j'ai sauté ma sortie longue", "j'ai pas pu faire ma séance de jeudi") and the resulting plan adjustments. Trigger for phrases like "bilan de la semaine", "weekly review", "comment s'est passée ma semaine", "ajuste mon plan", "analyse mes données Garmin", "j'ai raté/sauté ma séance de [X], ajuste le programme". DO NOT trigger for creating new training plans (use training-planner), proactively designing individual workouts from scratch (use workout-builder), race-day pacing (use race-strategy), or race-week nutrition (use race-week).
 ---
 
 # Training Tracker
@@ -26,19 +26,61 @@ Run a structured weekly review of the user's training: pull last week's data fro
 
 ## Execution context detection
 
-**Before producing the final recap**, detect the execution context:
-- **If `show_widget` tool is available** (Claude.ai web) → use visual widget format
-- **If `show_widget` is unavailable** (Claude Code CLI, API) → use structured markdown fallback
+Before starting, detect **two independent capabilities**:
 
-Both formats present the same information; only the rendering differs.
+1. **Widget rendering** — is `show_widget` tool available?
+   - Yes → use visual widget for the final recap
+   - No → use structured markdown fallback
+2. **Garmin MCP** — are tools like `garmin:get_activities`, `garmin:get_sleep` available?
+   - Yes → automatic data fetching (Stage 1 normal flow)
+   - No → manual input fallback (see section below)
 
-## Inputs needed
+These two checks are independent: you can have widgets without Garmin (claude.ai web — needs manual input but renders nicely), or Garmin without widgets (Claude Code CLI — auto-fetch but text-only recap).
+
+## Garmin MCP availability — fallback protocol
+
+If Garmin MCP is NOT available (typically on claude.ai web — Garmin is a local stdio server that only works on Cowork or Claude Code), immediately notify the user with this concise message:
+
+> "Le serveur Garmin MCP n'est pas accessible ici (claude.ai web). Deux options :
+>
+> **(1)** Bascule sur **Cowork** pour le bilan complet automatique (Garmin se connecte directement sur ton Mac)
+> **(2)** Fournis les données manuellement ici — je guide la saisie
+>
+> Tu préfères quoi ?"
+
+If the user chooses option (1), confirm and stop. The user will reopen the request in Cowork.
+
+If the user chooses option (2), guide manual input in **two compact blocks**:
+
+**Block A — Week activities** (one line per session, ask for what they have):
+```
+Jour | Type | Durée | Distance | Allure moy | FC moy | Charge
+Mar 14 | VMA 5×1000m | 1h05 | 11.2 km | 4:15/km | 168 bpm | 145
+Mer 15 | EF | 45min | 8.5 km | 5:18/km | 142 bpm | 65
+Jeu 16 | Seuil 2×15min | 55min | 11 km | 4:20/km | 162 bpm | 130
+Dim 19 | SL | 1h45 | 18 km | 5:00/km | 152 bpm | 220
+```
+
+Tell the user: "Copie-colle depuis Garmin Connect web ou tape ce que tu te souviens — incomplet est OK, je travaille avec ce que tu donnes."
+
+**Block B — Recovery signals** (optional, only if user mentions Garmin recovery data):
+```
+Jour | FC repos | Sommeil | Body Battery
+Lun | 51 | 78 | 85
+Mar | 52 | 72 | 78
+...
+```
+
+If the user only has activity data and no recovery signals, skip Stage 3 fatigue analysis or perform it with reduced confidence based on activities + user's subjective feel ("comment tu te sens ?").
+
+Once the user provides the data, proceed to Stage 2 (comparison) and Stage 3 (fatigue analysis) as usual — the rest of the workflow is identical.
+
+## Inputs needed (regardless of Garmin availability)
 
 Before starting, confirm with the user:
 
 1. **Current plan context** — which plan are we reviewing? (e.g. `#10km-plan-2026`, current week number, total weeks). If a plan tag exists in their Google Calendar, use it.
 2. **Week to review** — default is the past 7 days ending today. Confirm if ambiguous.
-3. **Garmin access** — verify Garmin MCP is available. If not, ask the user to provide activity data manually or skip Stage 1 fetching.
 
 Do NOT proceed without explicit week boundaries.
 
@@ -46,7 +88,7 @@ Do NOT proceed without explicit week boundaries.
 
 ### Stage 1 — Data collection
 
-Fetch from Garmin (primary source):
+**If Garmin MCP available** — fetch automatically:
 
 - **Activities of the week** (running only): date, duration, distance, average pace, average HR, max HR, training load, aerobic/anaerobic effect, cadence
 - **Recovery signals day by day**: resting HR, Body Battery (morning/evening/min), sleep score, stress, Training Readiness score
@@ -54,7 +96,9 @@ Fetch from Garmin (primary source):
 
 If Strava sync is enabled, cross-check completion (activities present in Strava but missing in Garmin = upload issue, not missed session).
 
-Implementation details: see `references/tracking-module.md` for the full Python code (functions `connect_garmin`, `get_week_activities_garmin`, `get_recovery_data_garmin`).
+**If Garmin MCP NOT available** — use the manual input collected via the fallback protocol above. Proceed with whatever data the user provided; missing fields trigger reduced-confidence analysis in Stage 3.
+
+Implementation details for automatic fetching: see `references/tracking-module.md` for the full Python code (functions `connect_garmin`, `get_week_activities_garmin`, `get_recovery_data_garmin`).
 
 ### Stage 2 — Compare planned vs actual
 
@@ -69,7 +113,7 @@ For each planned session in the week:
 
 Compute for each session:
 - `pace_delta_sec` — average pace difference vs target (seconds/km)
-- `hr_vs_zone` — was average HR in the prescribed zone?
+- `hr_vs_zone` — was average HR in the prescribed zone? (skip if HR data not provided)
 - Completion rate for the week (% of sessions completed)
 
 ### Stage 3 — Fatigue analysis
@@ -85,6 +129,8 @@ Score the week's recovery on 0–100 scale, starting from a 50 baseline. Apply p
 **Bonuses:**
 - Sleep score average ≥ 80 → +10
 - Training Readiness average ≥ 70 → +15
+
+**If recovery data not provided** (manual input case, partial data): skip the recovery-based penalties/bonuses. Fall back to a subjective check — ask the user: "Comment tu te sens cette semaine : 🟢 frais / 🟡 normal / 🟠 fatigué / 🔴 cramé ?" — and adjust the fatigue level accordingly.
 
 Map the final score to a fatigue level and recommendation:
 
@@ -124,7 +170,7 @@ Always conclude the review with a visual widget via the `visualize:show_widget` 
    - 🏃 **Distance totale** (km)
    - ⏱ **Temps total** (h:mm)
    - 🔥 **Charge totale** (sum of training load values)
-   - 😴 **Sommeil moyen** (avg sleep score)
+   - 😴 **Sommeil moyen** (avg sleep score, or "—" if not available)
 
 3. **Session list** with one row per planned session:
    - Color-coded dot (🟢 completed / 🟡 deviation / ⚠️ modified / ❌ missed)
@@ -132,7 +178,7 @@ Always conclude the review with a visual widget via the `visualize:show_widget` 
    - Duration, distance, avg pace, avg HR
    - Training load value (charge)
 
-4. **Mini bar charts** (bottom):
+4. **Mini bar charts** (bottom, only if data available):
    - Resting HR day by day (highlight any rise > baseline + 5 bpm in red)
    - Sleep score day by day (color scale: <60 red, 60–80 yellow, >80 green)
 
@@ -155,22 +201,18 @@ If the widget tool is not available, produce the recap in this exact markdown fo
 | 🏃 Distance totale | [N] km |
 | ⏱ Temps total | [h:mm] |
 | 🔥 Charge totale | [N] |
-| 😴 Sommeil moyen | [score]/100 |
+| 😴 Sommeil moyen | [score]/100 ou "—" |
 
 ### Séances de la semaine
 | Date | Statut | Séance | Durée | Distance | Allure moy | FC moy | Charge |
 |---|---|---|---|---|---|---|---|
 | Lun 13 | 😴 Repos | — | — | — | — | — | — |
 | Mar 14 | 🟢 OK | 🔴 FR 5×1000m | 1h05 | 11.2 km | 4:15/km | 168 bpm | 145 |
-| Mer 15 | 🟢 OK | 🟢 EF 45min | 45min | 8.5 km | 5:18/km | 142 bpm | 65 |
 | ... | ... | ... | ... | ... | ... | ... | ... |
 
-### Signaux de récupération
+### Signaux de récupération (si disponibles)
 | Jour | FC repos | Sommeil | Body Battery | Notes |
 |---|---|---|---|---|
-| Lun | 51 bpm | 78/100 | 85 | — |
-| Mar | 52 bpm | 72/100 | 78 | — |
-| ... | ... | ... | ... | ... |
 
 ### 🟡 Niveau de fatigue : MODÉRÉ (score: 62/100)
 Recommandation : **maintenir le plan tel quel**.
@@ -178,7 +220,6 @@ Recommandation : **maintenir le plan tel quel**.
 ### Ajustements proposés pour la semaine suivante
 - Mardi VMA : pas de changement
 - Dimanche SL : pas de changement
-- Note : surveiller la FC repos sur Mer-Jeu si elle continue de monter
 ```
 
 Use the same color emojis and status codes as the widget for visual consistency across surfaces.
@@ -208,7 +249,7 @@ Never "make up" a missed session by doubling another. If a key session (VMA, thr
 
 ## Tools to use
 
-- **Garmin MCP** (`garmin:get_activities`, `garmin:get_sleep`, `garmin:get_heart_rate`, `garmin:get_body_battery`, `garmin:get_training_readiness`, `garmin:get_weekly_summary`) — primary data source for Stage 1
+- **Garmin MCP** (`garmin:get_activities`, `garmin:get_sleep`, `garmin:get_heart_rate`, `garmin:get_body_battery`, `garmin:get_training_readiness`, `garmin:get_weekly_summary`) — primary data source for Stage 1 when available (Cowork, Claude Code)
 - **Google Calendar MCP** (`google-calendar:list-events`) — fetch planned sessions for the week, identified by plan hashtag (e.g. `#10km-plan-2026`)
 - **`visualize:show_widget`** with `visualize:read_me` first — when available, for visual output
 - **Markdown fallback** — when widget unavailable, structured text recap
