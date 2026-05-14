@@ -14,7 +14,7 @@ Legacy version archived in branch [`legacy/v1`](https://github.com/<your-usernam
 - [x] **Phase 3** — Extract `workout-builder` skill
 - [x] **Phase 4** — Extract `race-week` skill
 - [x] **Phase 5** — Refactor remaining content into `training-planner`
-- [ ] **Phase 6** — Validation pass + tighten triggers across all skills
+- [x] **Phase 6** — Validation pass + tighten triggers across all skills
 - [ ] **Phase 7** *(post-migration)* — Add marketplace.json, publish public, test install from another machine
 
 ---
@@ -103,6 +103,12 @@ To avoid trigger contention between skills, each one matches a tight set of phra
 - Enriched with NOT-triggers, widget-first + text fallback pattern, coordination notes
 - All 5 skills now live in the plugin structure
 - Next: Phase 6.2 (claude.ai bridge + legacy deactivation), Phase 6.3 (trigger validation)
+
+### 2026-05-14 — Phase 6 complete (validation pass)
+- Phase 6.1: Rapatriated race-strategy into the plugin
+- Phase 6.2: Added package.sh for claude.ai bridge, uploaded 5 skills, added Garmin MCP availability fallback to 3 skills, deactivated legacy running-coach
+- Phase 6.3: Tightened triggers based on 7-phrase test matrix — 5/7 correct, 1 acceptable, 1 fixed (retrospective vs proactive disambiguation between training-tracker and workout-builder)
+- Migration tracker now ready for Phase 7 (public distribution via marketplace.json)
 
 ### YYYY-MM-DD — Phase X (...)
 - (fill as you go)
