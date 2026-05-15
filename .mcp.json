@@ -1,0 +1,13 @@
+{
+  "_comment": "MCP server dependencies for the running-coach plugin. The Garmin MCP is OPTIONAL — the plugin works without it via manual data input fallbacks. Install garmin-mcp from https://github.com/Gasper0/garmin-mcp if you want full Garmin Connect integration. The paths below are TEMPLATES — replace ${HOME}/garmin-mcp with the actual path where you cloned garmin-mcp on your machine.",
+
+  "mcpServers": {
+    "garmin": {
+      "type": "stdio",
+      "command": "${HOME}/garmin-mcp/venv/bin/python3",
+      "args": [
+        "${HOME}/garmin-mcp/server.py"
+      ]
+    }
+  }
+}
