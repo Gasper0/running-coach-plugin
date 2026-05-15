@@ -110,8 +110,22 @@ To avoid trigger contention between skills, each one matches a tight set of phra
 - Phase 6.3: Tightened triggers based on 7-phrase test matrix — 5/7 correct, 1 acceptable, 1 fixed (retrospective vs proactive disambiguation between training-tracker and workout-builder)
 - Migration tracker now ready for Phase 7 (public distribution via marketplace.json)
 
-### YYYY-MM-DD — Phase X (...)
-- (fill as you go)
+### 2026-05-14 — Phase 7.1 (garmin-mcp public release)
+- Published garmin-mcp as a separate public repo at https://github.com/Gasper0/garmin-mcp
+- Approach B chosen (plugin + MCP in separate repos): plugin focuses on coaching skills, MCP has its own lifecycle
+- Repo contents: server.py + garmin_client.py (original code), requirements.txt, README.md (Claude Code + Desktop + Cowork install paths), LICENSE (MIT with third-party attributions to python-garminconnect/mcp/python-dotenv), .env.example, .gitignore, install.sh (cross-platform Python detection script)
+- install.sh v2: detects compatible Python (3.10+) by trying python3.12 → 3.11 → 3.10 → python3, gives clear error message if none found
+- Verified no credentials hardcoded in code (only os.getenv) and no .env committed
+- garmin-mcp positioned as optional dependency for the plugin: without it, the plugin works via manual data input fallbacks
+
+### 2026-05-14 — Phase 7.2 (marketplace + v0.2.0)
+- Created .claude-plugin/marketplace.json (Gasper0 marketplace exposing running-coach plugin)
+- Created .mcp.json declaring garmin-mcp as optional MCP dependency
+- Bumped plugin.json from v0.1.0 to v0.2.0 (beta stable)
+- Complete README refresh: marketplace install, garmin-mcp integration, surface compatibility matrix
+- Completed training-planner cross-surface fallback (leftover from Phase 6.2)
+- Local install tested: `/plugin install running-coach@Gasper0` succeeds, all 5 skills detected
+- Source format issue resolved: `"./"` instead of `"."` required for plugin-at-root-of-repo case
 
 ---
 
