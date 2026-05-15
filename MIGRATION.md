@@ -135,6 +135,19 @@ To avoid trigger contention between skills, each one matches a tight set of phra
 - Fixed README install command syntax (shorthand `Gasper0/running-coach-plugin` instead of `github.com/...`)
 - All migration phases complete — the plugin is now publicly distributable
 
+### 2026-05-15 — Phase 7.4 (plugin zip + multi-path install)
+- Enhanced package.sh with --plugin flag to generate a complete plugin zip
+- Updated GitHub Release v0.2.0 with running-coach-plugin.zip attached
+- Validated "Add marketplace" path on claude.ai/Cowork (UI-driven, no Claude Code needed)
+- Updated README to document all three install paths for non-Claude-Code surfaces
+- All install paths now validated: Claude Code marketplace, claude.ai marketplace, claude.ai plugin upload, claude.ai individual skill upload
+- All migration phases complete
+
+### 2026-05-15 — Patch (garmin-mcp v0.1.1)
+- Fixed garminconnect dependency bug discovered on fresh-install testing (separate repo)
+- Pinned garminconnect to 0.2.25, hardened token cache handling
+- Released garmin-mcp v0.1.1
+
 ---
 
 ## Notes & decisions
