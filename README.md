@@ -58,6 +58,7 @@ The zips include shared resources inlined — each one is self-contained.
 ## Optional integration — Garmin MCP
 
 For the full experience, install the companion [garmin-mcp](https://github.com/Gasper0/garmin-mcp) server, which gives the plugin direct access to your Garmin Connect data and the ability to push workouts to your watch.
+> **Recommended:** [garmin-mcp v0.1.1+](https://github.com/Gasper0/garmin-mcp/releases/tag/v0.1.1) (v0.1.0 has a known dependency bug)
 
 **Without garmin-mcp**, the plugin still works fully via manual data input — you can copy-paste your week's activities and the plan will be adjusted. The skill `training-tracker` automatically falls back to a manual-input protocol when Garmin MCP is unavailable.
 
