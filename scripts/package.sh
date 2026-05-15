@@ -1,21 +1,19 @@
 #!/usr/bin/env bash
-# package.sh — Generate claude.ai-ready zips for each skill in the plugin.
+# package.sh — Generate distribution-ready zips for the plugin.
 #
-# Each skill is packaged as a standalone .zip:
-#   - SKILL.md (with rewritten paths)
-#   - references/
-#   - scripts/ (if present)
-#   - _shared/ (only if the skill references ../_shared/...)
+# Two modes:
+#   1. Individual skill zips (for claude.ai → Skills upload)
+#      Each skill is packaged standalone, with _shared/ inlined when referenced.
+#   2. Plugin zip (for claude.ai/Cowork → "Upload plugin")
+#      The whole plugin packaged as a single zip, preserving _shared/ as a folder.
 #
 # Path references ../_shared/X.md are rewritten to _shared/X.md in the
-# packaged version. Source files in the repo are NEVER modified.
-#
-# Output: dist/<skill-name>.zip — ready to upload at:
-#   claude.ai → Settings → Capabilities → Skills → Upload skill
+# packaged skill versions. Source files in the repo are NEVER modified.
 #
 # Usage:
-#   ./scripts/package.sh                 # package all skills
-#   ./scripts/package.sh training-tracker # package one skill only
+#   ./scripts/package.sh                  # all 5 skills + plugin zip
+#   ./scripts/package.sh training-tracker # one skill only
+#   ./scripts/package.sh --plugin         # plugin zip only
 
 set -euo pipefail
 
@@ -23,6 +21,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SKILLS_DIR="$REPO_ROOT/skills"
 DIST_DIR="$REPO_ROOT/dist"
 SHARED_DIR="$SKILLS_DIR/_shared"
+PLUGIN_NAME="running-coach-plugin"
 
 # Cross-platform sed in-place editing
 if [[ "$(uname)" == "Darwin" ]]; then
@@ -42,11 +41,18 @@ if ! command -v zip >/dev/null 2>&1; then
   exit 1
 fi
 
-# Determine target skills
+# Determine mode
+PACKAGE_PLUGIN_ONLY=false
+SKILLS_TO_PACKAGE=()
+
 if [[ $# -gt 0 ]]; then
-  SKILLS_TO_PACKAGE=("$@")
+  if [[ "$1" == "--plugin" ]]; then
+    PACKAGE_PLUGIN_ONLY=true
+  else
+    SKILLS_TO_PACKAGE=("$@")
+  fi
 else
-  SKILLS_TO_PACKAGE=()
+  # No args: package all skills + plugin zip
   for skill_dir in "$SKILLS_DIR"/*/; do
     skill_name=$(basename "$skill_dir")
     [[ "$skill_name" == "_shared" ]] && continue
@@ -54,99 +60,141 @@ else
   done
 fi
 
-# Prepare dist dir
 mkdir -p "$DIST_DIR"
 
-echo "📦 Packaging ${#SKILLS_TO_PACKAGE[@]} skill(s) to $DIST_DIR/"
-echo ""
+# ─────────────────────────────────────────────────────────────
+# Individual skill zips
+# ─────────────────────────────────────────────────────────────
 
-for skill_name in "${SKILLS_TO_PACKAGE[@]}"; do
-  src_dir="$SKILLS_DIR/$skill_name"
-  temp_dir="$DIST_DIR/$skill_name"
+if [[ "$PACKAGE_PLUGIN_ONLY" == "false" ]] && [[ ${#SKILLS_TO_PACKAGE[@]} -gt 0 ]]; then
+  echo "📦 Packaging ${#SKILLS_TO_PACKAGE[@]} skill(s) to $DIST_DIR/"
+  echo ""
 
-  if [[ ! -d "$src_dir" ]]; then
-    echo "⚠️  Skill not found: $skill_name (skipped)"
-    continue
-  fi
+  for skill_name in "${SKILLS_TO_PACKAGE[@]}"; do
+    src_dir="$SKILLS_DIR/$skill_name"
+    temp_dir="$DIST_DIR/$skill_name"
 
-  if [[ ! -f "$src_dir/SKILL.md" ]]; then
-    echo "⚠️  $skill_name has no SKILL.md (skipped — only README placeholder?)"
-    continue
-  fi
+    if [[ ! -d "$src_dir" ]]; then
+      echo "⚠️  Skill not found: $skill_name (skipped)"
+      continue
+    fi
 
-  echo "▶  $skill_name"
+    if [[ ! -f "$src_dir/SKILL.md" ]]; then
+      echo "⚠️  $skill_name has no SKILL.md (skipped)"
+      continue
+    fi
 
-  # Clean and recreate temp dir
-  rm -rf "$temp_dir"
-  mkdir -p "$temp_dir"
+    echo "▶  $skill_name"
 
-  # Copy SKILL.md
-  cp "$src_dir/SKILL.md" "$temp_dir/SKILL.md"
+    rm -rf "$temp_dir"
+    mkdir -p "$temp_dir"
 
-  # Copy references/ if it exists
-  if [[ -d "$src_dir/references" ]]; then
-    cp -R "$src_dir/references" "$temp_dir/references"
-  fi
+    cp "$src_dir/SKILL.md" "$temp_dir/SKILL.md"
 
-  # Copy scripts/ if it exists (e.g. race-strategy/scripts/parse_gpx.py)
-  if [[ -d "$src_dir/scripts" ]]; then
-    cp -R "$src_dir/scripts" "$temp_dir/scripts"
-  fi
+    if [[ -d "$src_dir/references" ]]; then
+      cp -R "$src_dir/references" "$temp_dir/references"
+    fi
 
-  # Detect if SKILL.md or any reference uses ../_shared/
-  needs_shared=false
-  if grep -q '\.\./_shared/' "$temp_dir/SKILL.md" 2>/dev/null; then
-    needs_shared=true
-  fi
-  if [[ -d "$temp_dir/references" ]]; then
-    if grep -rq '\.\./_shared/' "$temp_dir/references" 2>/dev/null; then
+    if [[ -d "$src_dir/scripts" ]]; then
+      cp -R "$src_dir/scripts" "$temp_dir/scripts"
+    fi
+
+    # Detect _shared/ references
+    needs_shared=false
+    if grep -q '\.\./_shared/' "$temp_dir/SKILL.md" 2>/dev/null; then
       needs_shared=true
     fi
-  fi
-
-  if [[ "$needs_shared" == "true" ]]; then
-    if [[ ! -d "$SHARED_DIR" ]]; then
-      echo "   ❌ Skill references ../_shared/ but $SHARED_DIR not found"
-      rm -rf "$temp_dir"
-      exit 1
-    fi
-
-    echo "   → Inlining _shared/ (skill references shared resources)"
-    cp -R "$SHARED_DIR" "$temp_dir/_shared"
-
-    # Rewrite path references: ../_shared/X.md → _shared/X.md
-    "${SED_INPLACE[@]}" 's|\.\./_shared/|_shared/|g' "$temp_dir/SKILL.md"
-
-    # Also rewrite in references/*.md if present
     if [[ -d "$temp_dir/references" ]]; then
-      find "$temp_dir/references" -name "*.md" -type f -print0 | \
-        while IFS= read -r -d '' file; do
-          "${SED_INPLACE[@]}" 's|\.\./_shared/|_shared/|g' "$file"
-        done
+      if grep -rq '\.\./_shared/' "$temp_dir/references" 2>/dev/null; then
+        needs_shared=true
+      fi
     fi
-  else
-    echo "   → No _shared/ references (skipping inline)"
-  fi
 
-  # Create the zip
+    if [[ "$needs_shared" == "true" ]]; then
+      if [[ ! -d "$SHARED_DIR" ]]; then
+        echo "   ❌ Skill references ../_shared/ but $SHARED_DIR not found"
+        rm -rf "$temp_dir"
+        exit 1
+      fi
+
+      echo "   → Inlining _shared/"
+      cp -R "$SHARED_DIR" "$temp_dir/_shared"
+
+      "${SED_INPLACE[@]}" 's|\.\./_shared/|_shared/|g' "$temp_dir/SKILL.md"
+
+      if [[ -d "$temp_dir/references" ]]; then
+        find "$temp_dir/references" -name "*.md" -type f -print0 | \
+          while IFS= read -r -d '' file; do
+            "${SED_INPLACE[@]}" 's|\.\./_shared/|_shared/|g' "$file"
+          done
+      fi
+    else
+      echo "   → No _shared/ references"
+    fi
+
+    cd "$DIST_DIR"
+    rm -f "${skill_name}.zip"
+    zip -rq "${skill_name}.zip" "$skill_name"
+    cd - > /dev/null
+
+    rm -rf "$temp_dir"
+
+    size=$(du -h "$DIST_DIR/${skill_name}.zip" | cut -f1)
+    echo "   ✓ dist/${skill_name}.zip ($size)"
+    echo ""
+  done
+fi
+
+# ─────────────────────────────────────────────────────────────
+# Plugin zip (whole plugin as one zip)
+# ─────────────────────────────────────────────────────────────
+
+if [[ $# -eq 0 ]] || [[ "$PACKAGE_PLUGIN_ONLY" == "true" ]]; then
+  echo "📦 Packaging full plugin to $DIST_DIR/${PLUGIN_NAME}.zip"
+  echo ""
+
+  temp_plugin_dir="$DIST_DIR/$PLUGIN_NAME"
+
+  rm -rf "$temp_plugin_dir"
+  mkdir -p "$temp_plugin_dir"
+
+  for item in .claude-plugin .mcp.json skills config.example.json README.md LICENSE; do
+    if [[ -e "$REPO_ROOT/$item" ]]; then
+      cp -R "$REPO_ROOT/$item" "$temp_plugin_dir/"
+      echo "   + $item"
+    fi
+  done
+
+  # Clean any cruft
+  find "$temp_plugin_dir" -name ".DS_Store" -delete 2>/dev/null || true
+  find "$temp_plugin_dir" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+  find "$temp_plugin_dir" -name "*.pyc" -delete 2>/dev/null || true
+
   cd "$DIST_DIR"
-  rm -f "${skill_name}.zip"
-  zip -rq "${skill_name}.zip" "$skill_name"
+  rm -f "${PLUGIN_NAME}.zip"
+  zip -rq "${PLUGIN_NAME}.zip" "$PLUGIN_NAME"
   cd - > /dev/null
 
-  # Cleanup temp dir
-  rm -rf "$temp_dir"
+  rm -rf "$temp_plugin_dir"
 
-  size=$(du -h "$DIST_DIR/${skill_name}.zip" | cut -f1)
-  echo "   ✓ dist/${skill_name}.zip ($size)"
+  size=$(du -h "$DIST_DIR/${PLUGIN_NAME}.zip" | cut -f1)
   echo ""
-done
+  echo "   ✓ dist/${PLUGIN_NAME}.zip ($size)"
+fi
 
+# ─────────────────────────────────────────────────────────────
+# Final summary
+# ─────────────────────────────────────────────────────────────
+
+echo ""
 echo "✅ Done."
 echo ""
-echo "Next steps:"
-echo "  1. Go to claude.ai → Settings → Capabilities → Skills"
-echo "  2. Click 'Upload skill' for each zip in dist/"
-echo "  3. Upload them one by one (5 skills total)"
-echo ""
-ls -lh "$DIST_DIR"/*.zip 2>/dev/null || echo "(no zips generated)"
+
+if [[ -d "$DIST_DIR" ]] && ls "$DIST_DIR"/*.zip >/dev/null 2>&1; then
+  echo "Generated zips:"
+  ls -lh "$DIST_DIR"/*.zip
+  echo ""
+  echo "Next steps:"
+  echo "  Individual skills → claude.ai → Settings → Capabilities → Skills → Upload skill"
+  echo "  Plugin zip       → claude.ai/Cowork → Customize → Personal plugins → + → Upload plugin"
+fi
