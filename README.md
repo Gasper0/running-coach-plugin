@@ -28,7 +28,7 @@ Each skill is self-contained and triggers independently. Shared resources (sessi
 ### Quick install via Claude Code marketplace (recommended)
 
 ```
-/plugin marketplace add github.com/Gasper0/running-coach-plugin
+/plugin marketplace add Gasper0/running-coach-plugin
 /plugin install running-coach@Gasper0
 ```
 
