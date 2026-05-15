@@ -15,7 +15,7 @@ Legacy version archived in branch [`legacy/v1`](https://github.com/<your-usernam
 - [x] **Phase 4** — Extract `race-week` skill
 - [x] **Phase 5** — Refactor remaining content into `training-planner`
 - [x] **Phase 6** — Validation pass + tighten triggers across all skills
-- [ ] **Phase 7** *(post-migration)* — Add marketplace.json, publish public, test install from another machine
+- [x] **Phase 7** *(post-migration)* — Add marketplace.json, publish public, test install from another machine
 
 ---
 
@@ -126,6 +126,14 @@ To avoid trigger contention between skills, each one matches a tight set of phra
 - Completed training-planner cross-surface fallback (leftover from Phase 6.2)
 - Local install tested: `/plugin install running-coach@Gasper0` succeeds, all 5 skills detected
 - Source format issue resolved: `"./"` instead of `"."` required for plugin-at-root-of-repo case
+
+### 2026-05-14 — Phase 7.3 (public release v0.2.0)
+- Repo running-coach-plugin made public
+- Created GitHub Release v0.2.0 with 5 skill zips attached as assets
+- Tested install via marketplace shorthand: `/plugin marketplace add Gasper0/running-coach-plugin` then `/plugin install running-coach@Gasper0`
+- Validated trigger: "J'ai une course dans 4 jours" → race-week skill loaded and executed correctly
+- Fixed README install command syntax (shorthand `Gasper0/running-coach-plugin` instead of `github.com/...`)
+- All migration phases complete — the plugin is now publicly distributable
 
 ---
 
