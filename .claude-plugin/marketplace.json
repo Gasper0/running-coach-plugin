@@ -1,0 +1,25 @@
+{
+  "name": "Gasper0",
+  "owner": {
+    "name": "Gaspard Peyrot"
+  },
+  "plugins": [
+    {
+      "name": "running-coach",
+      "source": "./",
+      "description": "Personalized running and Hyrox coaching plugin with 5 specialized skills: training-planner (build periodized plans), training-tracker (weekly reviews from Garmin), workout-builder (single workout creation/modification), race-week (7-day pre-race protocol), and race-strategy (km-by-km pacing from course profile). Supports 10km, half-marathon, marathon, and Hyrox preparation.",
+      "version": "0.2.0",
+      "homepage": "https://github.com/Gasper0/running-coach-plugin",
+      "keywords": [
+        "running",
+        "hyrox",
+        "training",
+        "marathon",
+        "half-marathon",
+        "10km",
+        "coaching",
+        "garmin"
+      ]
+    }
+  ]
+}
