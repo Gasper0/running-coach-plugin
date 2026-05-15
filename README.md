@@ -39,19 +39,33 @@ Verify installation:
 
 You should see `running-coach@Gasper0` with all 5 skills active.
 
-### Manual install (Claude.ai web / Cowork)
+### Install on Claude.ai web / Cowork
 
-If you're on Claude.ai web or Cowork without Claude Code, download the prebuilt skill zips from the [Releases page](https://github.com/Gasper0/running-coach-plugin/releases) and upload them one by one via:
-- Claude.ai → Settings → Capabilities → Skills → Upload
+Three options, in order of simplicity:
 
-5 zips to upload (in any order):
+**Option 1 — Add marketplace (recommended):**
+1. Open Claude.ai or Cowork
+2. Customize → Personal plugins → "+" → **Add marketplace**
+3. Enter: `Gasper0/running-coach-plugin`
+4. Install the running-coach plugin from the listed marketplace
+
+All 5 skills are activated in one step. Future updates are pulled automatically.
+
+**Option 2 — Upload plugin zip:**
+1. Download `running-coach-plugin.zip` from the [Releases page](https://github.com/Gasper0/running-coach-plugin/releases/latest)
+2. Customize → Personal plugins → "+" → **Upload plugin** → select the zip
+
+Same end result as Option 1, useful if marketplace isn't available in your client version.
+
+**Option 3 — Upload individual skill zips (fallback):**
+Download the 5 skill zips from the Releases page and upload each one via Settings → Capabilities → Skills → Upload skill:
 - `training-planner.zip`
 - `training-tracker.zip`
 - `workout-builder.zip`
 - `race-week.zip`
 - `race-strategy.zip`
 
-The zips include shared resources inlined — each one is self-contained.
+Each zip is self-contained (shared resources inlined). Useful if you only want a specific skill.
 
 ---
 
